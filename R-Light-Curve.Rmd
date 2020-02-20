@@ -1,0 +1,26 @@
+---
+title: "Capstone"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+
+lc = load("C:\\Users\\elire\\Downloads\\001872347_results.Rdat")
+lc = results$Lightcurve
+resid = results$ARFIMA$residuals
+
+plot(lc[!is.na(lc)], type = "line")
+plot(resid, type = "line")
+```
+
+```{r}
+library(tsoutliers)
+
+lc = as.ts(lc)
+data = tso(lc)
+data
+
+
+```
