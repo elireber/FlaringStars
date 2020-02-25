@@ -2,16 +2,25 @@ from datetime import datetime
 import os
 import platform
 import subprocess
+from queue import Queue
+from threading import Thread
+from time import time
 from os import listdir
 from os.path import isfile, join
-time = datetime.now()
-print("Running DS440 Flare Stars Batch Script v0.2")
-print("Run start: ", time)
+from random import randint
+from time import sleep
+import timeit
 
+#CONFIGURARTION PARAMETERS
+time = datetime.now()
+threadCount     =   4
 pathToR         =   "\"c:\Program Files\R\R-3.6.2\\bin\RScript.exe\""    #R's location on this machine
 pathToData      =   "test_data"                                     #directory of the data files
 pathToRScript   =   "dummy.R"                                       #R script to run on each file
 pathToOutput    =   "test_output"                                   #directory of the output
+########
+
+#setup
 outFileName     =   "results" + str(time.year) + "-" + str(time.month) + "-" + str(time.day) + "-" + str(time.hour) + "-" + str(time.minute) + "-" + str(time.second) + ".out"
 outString       =   "Results Generated on " + str(time) + "---\n"   #where the result will eventually be written
 if platform.system() == 'Windows':
@@ -19,27 +28,59 @@ if platform.system() == 'Windows':
 else:
     fs = "/"
 dataFiles = [f for f in listdir(pathToData) if isfile(join(pathToData, f))]
-flares = []
-notFlares = []
-i = 1
-for file in dataFiles:  
-    #run the R script for each input data file
-    cmd = pathToR + " " + pathToRScript + " " + pathToData + fs + file
-    
-    subOutput = subprocess.check_output(cmd).decode('UTF-8')
-    #process that output and record it to the new datafile
-    
-    #**********this is a clumsy workaround and is just for test purposes- 
-    #will need to figure out how better to parse the R subprocess output later if we want to save other things
-    #print(subOutput)
-    if str(subOutput[4]) == '1':
-        flares.append(file)
-    else:
-        notFlares.append(file)
+flares          =   []
+notFlares       =   []
+workQueue       =   Queue()                                         #multithreading work queue       
 
-   
-    print("Processing file: " + file + "("+ str(i) + " of " + str(len(dataFiles)) + ") completed")
-    i = i+1
+
+#----worker thread
+class RScriptWorker(Thread):
+
+    def __init__(self, queue):
+        Thread.__init__(self)
+        self.queue = workQueue
+
+    def run(self):
+        while True:
+            #get the next file name from the work queue
+            file = self.queue.get()
+            threadStart = timeit.default_timer()
+            try:
+                #process the data file
+                cmd = pathToR + " " + pathToRScript + " " + pathToData + fs + file
+                subOutput = subprocess.check_output(cmd).decode('UTF-8')
+                #**************this part will need to change for the real R script. right now it only checks: output of 1 = flare 0 = not
+                if str(subOutput[4]) == '1':
+                    flares.append(file)
+                else:
+                    notFlares.append(file)
+                    
+                #simulate random processing time (testing only)  
+                sleep(randint(2,10))
+                processed = len(flares)+len(notFlares)-threadCount+1
+                print("Processing file: {} ({} of {}) completed in {} seconds".format(file, processed, len(dataFiles), timeit.default_timer() - threadStart))
+            finally:
+                self.queue.task_done()
+#--------------
+
+#start the processing
+print("Running DS440 Flare Stars Script v0.3")
+print("Threads: ", threadCount)
+print("Run start: ", time)
+startTime = timeit.default_timer()
+
+#make X threads listening to the work queue for data files
+for x in range(threadCount):  
+    thread = RScriptWorker(workQueue)
+    thread.daemon = True
+    thread.start()
+    
+#add each datafile to the work queue for threads
+for file in dataFiles:
+    workQueue.put(file)
+
+#wait for all threads to finish
+workQueue.join()
     
 #make the results file    
 outString = (outString + "Summary:\nScript Used: " + pathToRScript + "\n" 
@@ -49,11 +90,10 @@ outString = (outString + "Summary:\nScript Used: " + pathToRScript + "\n"
 for flare in flares:
     outString = outString + flare + "\n"
 
-
-
-#save the results file
-f = open(outFileName,'w+')
+#save(just printing for now) the results file
 print(outString)
+#f = open(outFileName,'w+')
 #f.write(outString)
-f.close()
-print("Program Complete, results file saved to " + outFileName)
+#f.close()
+print("Program Complete, total runtime of %0.2f seconds." % (timeit.default_timer() - startTime))
+print("Results file saved to " + outFileName)
