@@ -3,7 +3,7 @@ import os
 import platform
 import subprocess
 from queue import Queue
-from threading import Thread
+from threading import Thread, Lock
 from time import time
 from os import listdir
 from os.path import isfile, join
@@ -11,16 +11,16 @@ from random import randint
 from time import sleep
 import timeit
 
-#CONFIGURARTION PARAMETERS
-time = datetime.now()
+#CONFIGURATION PARAMETERS
 threadCount     =   4
-pathToR         =   "\"c:\Program Files\R\R-3.6.2\\bin\RScript.exe\""    #R's location on this machine
-pathToData      =   "test_data"                                     #directory of the data files
-pathToRScript   =   "dummy.R"                                       #R script to run on each file
-pathToOutput    =   "test_output"                                   #directory of the output
+pathToR         =   "\"c:\Program Files\R\R-3.6.2\\bin\RScript.exe\""   #R's location on this machine
+pathToData      =   "test_data"                                         #directory of the data files
+pathToRScript   =   "dummy.R"                                           #R script to run on each file
+pathToOutput    =   "test_output"                                       #directory of the output
 ########
 
 #setup
+time = datetime.now()
 outFileName     =   "results" + str(time.year) + "-" + str(time.month) + "-" + str(time.day) + "-" + str(time.hour) + "-" + str(time.minute) + "-" + str(time.second) + ".out"
 outString       =   "Results Generated on " + str(time) + "---\n"   #where the result will eventually be written
 if platform.system() == 'Windows':
@@ -31,7 +31,7 @@ dataFiles = [f for f in listdir(pathToData) if isfile(join(pathToData, f))]
 flares          =   []
 notFlares       =   []
 workQueue       =   Queue()                                         #multithreading work queue       
-
+mutex           =   Lock()
 
 #----worker thread
 class RScriptWorker(Thread):
@@ -49,22 +49,25 @@ class RScriptWorker(Thread):
                 #process the data file
                 cmd = pathToR + " " + pathToRScript + " " + pathToData + fs + file
                 subOutput = subprocess.check_output(cmd).decode('UTF-8')
+                
+                #simulate random processing time (testing only)  
+                sleep(randint(2,10))
+                
                 #**************this part will need to change for the real R script. right now it only checks: output of 1 = flare 0 = not
+                mutex.acquire()
                 if str(subOutput[4]) == '1':
                     flares.append(file)
                 else:
                     notFlares.append(file)
                     
-                #simulate random processing time (testing only)  
-                sleep(randint(2,10))
-                processed = len(flares)+len(notFlares)-threadCount+1
-                print("Processing file: {} ({} of {}) completed in {} seconds".format(file, processed, len(dataFiles), timeit.default_timer() - threadStart))
+                print("Processing file: {} ({} of {}) completed in {} seconds".format(file, len(flares)+len(notFlares), len(dataFiles),timeit.default_timer() - threadStart))
+                mutex.release()
             finally:
                 self.queue.task_done()
 #--------------
 
 #start the processing
-print("Running DS440 Flare Stars Script v0.3")
+print("Running DS440 Flare Stars Script v0.4")
 print("Threads: ", threadCount)
 print("Run start: ", time)
 startTime = timeit.default_timer()
@@ -83,7 +86,7 @@ for file in dataFiles:
 workQueue.join()
     
 #make the results file    
-outString = (outString + "Summary:\nScript Used: " + pathToRScript + "\n" 
+outString = (outString + "Script Used: " + pathToRScript + "\n" 
     + "Files Tested: " + str(len(dataFiles)) + "\n"
     + "Flares Found: " + str(len(flares)) + "\n"
     + "Flare Files---" + "\n")
