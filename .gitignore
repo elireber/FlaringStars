@@ -2,3 +2,5 @@
 .Rhistory
 .RData
 .Ruserdata
+#ignore any results files
+/Results*
