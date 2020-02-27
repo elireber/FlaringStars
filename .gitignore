@@ -4,3 +4,4 @@
 .Ruserdata
 #ignore any results files
 /Results*
+.DS_Store
