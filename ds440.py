@@ -60,7 +60,7 @@ class RScriptWorker(Thread):
                 else:
                     notFlares.append(file)
                     
-                print("Processing file: {} ({} of {}) completed in {} seconds".format(file, len(flares)+len(notFlares), len(dataFiles),timeit.default_timer() - threadStart))
+                print("Processing file: {} ({} of {}) completed in {} seconds".format(file, len(flares)+len(notFlares), len(dataFiles),"%0.2f" % (timeit.default_timer() - threadStart)))
                 mutex.release()
             finally:
                 self.queue.task_done()
