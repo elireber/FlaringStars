@@ -1,0 +1,10 @@
+Libraries to test:
+ - Prophet
+ - Outliers
+ - OutlierDetection
+ 
+ 
+ Ideas:
+ - Sliding Window to speed up processing
+ - Dynamic Time warping to test outliers shapes
+ - Test the correlation between different time series to remove that variance
