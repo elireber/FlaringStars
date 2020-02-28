@@ -1,4 +1,4 @@
-install.packages("Hmisc")
+#install.packages("Hmisc")
 library("Hmisc")
 
 # set working directory to wherever your project is stored
@@ -6,10 +6,10 @@ setwd("~/Desktop/Flaring Stars/Team 2")
 
 # test Pathnames
 test_count <- 15
-results_list <- sample(list.files("../Results_Files_1"), 10)
+results_list <- sample(list.files("../Results_Files_1"), test_count)
 
 # test intervals
-subset_count <- 20
+subset_count <- 10
 test_interval <- 1:(71427/subset_count)
 
 
@@ -20,8 +20,8 @@ for (test_num in 1:length(results_list)){
   resid_list[test_num] <- list(results$ARFIMA$residuals[test_interval])
 }
 
-rcorr(cbind(do.call("cbind",resid_list)))
+x <- cbind(do.call("cbind",resid_list))
 
-
+rcorr(x)
 
 
