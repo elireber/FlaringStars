@@ -1,6 +1,6 @@
 # install.packages("prophet")
 library("prophet")
-library(lubridate)
+library("lubridate")
 
 # set working directory to wherever your project is stored
 setwd("~/Desktop/Flaring Stars/Team 2")
