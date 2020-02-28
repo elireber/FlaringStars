@@ -41,10 +41,6 @@ df <- data.frame("ds" = time_from_start[test_interval], "y" = resid[test_interva
 # start the clock
 ptm <- proc.time()
 
-# find outlier using outlier detection library
-
-
-
 # print fit time
 proc.time() - ptm
 
