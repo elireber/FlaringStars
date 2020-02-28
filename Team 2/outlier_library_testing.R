@@ -38,15 +38,16 @@ time_from_start <- seq(ymd_hm('0000-01-01 00:00'),ymd_hm('0004-12-31 23:45'), by
 # create a df from the residuals
 df <- data.frame("ds" = time_from_start[test_interval], "y" = resid[test_interval])
 
+# get a list of the residuals 
+for (test_num in 1:length(results_list)){
+  load(paste("../Results_Files_1/", results_list[test_num],sep = ""))
+  resid_list[test_num] <- list(results$ARFIMA$residuals[test_interval])
+}
+
 # start the clock
 ptm <- proc.time()
 
-# print fit time
+# print time
 proc.time() - ptm
 
-# plot the forecast
-plot(m, forecast)
-
-# Stop the clock
-proc.time() - ptm
 
