@@ -3,6 +3,7 @@ Libraries to test:
  - Outliers
  - OutlierDetection
  
+EACH POINT IS 30 MINUTES
  
  Ideas:
  - Sliding Window to speed up processing
