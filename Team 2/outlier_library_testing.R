@@ -41,9 +41,26 @@ df <- data.frame("ds" = time_from_start[test_interval], "y" = resid[test_interva
 # start the clock
 ptm <- proc.time()
 
+<<<<<<< HEAD
 # find outlier using outlier detection library
 
 
+=======
+# build the prophet model object
+m <- prophet(df,
+             daily.seasonality=FALSE,
+             weekly.seasonality=FALSE,
+             yearly.seasonality=FALSE
+)
+# print build time
+proc.time() - ptm
+
+# set a small period in the future so prophet can predict
+future <- make_future_dataframe(m, periods = 1)
+
+# fit the model
+forecast <- predict(m, future)
+>>>>>>> d0d6ceb5516d59518818e09a038d62e97f08a556
 
 # print fit time
 proc.time() - ptm
