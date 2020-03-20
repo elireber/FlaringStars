@@ -31,7 +31,9 @@ ptm <- proc.time()
 m <- prophet(df,
              daily.seasonality=FALSE,
              weekly.seasonality=FALSE,
-             yearly.seasonality=FALSE
+             yearly.seasonality=FALSE,
+             changepoint.range = 1,
+             changepoint.prior.scale = 0.5
              )
 # print build time
 proc.time() - ptm
@@ -46,7 +48,7 @@ forecast <- predict(m, future)
 proc.time() - ptm
 
 # plot the forecast
-plot(m, forecast)
+plot(m, forecast) + add_changepoints_to_plot(m)
 
 # Stop the clock
 proc.time() - ptm
