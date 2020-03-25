@@ -1,5 +1,13 @@
-#install.packages("outliers")
-library("outliers")
+#install.packages("tsoutliers")
+#install.packages("changepoint")
+#install.packages("dtw")
+#install.packages("lubridate")
+
+library("changepoint")
+library("tsoutliers")
+library("dtw")
+library("lubridate")
+
 set.seed(42)
 
 # set working directory to wherever your project is stored
@@ -8,6 +16,7 @@ setwd("~/Desktop/Flaring Stars/Team 2")
 # test Pathnames
 test_count <- 1
 results_list <- sample(list.files("../KARPS_Davenport"), test_count)
+test_num <-1
 
 # get the predicted flares
 davenport_predicted <- read.csv(file = '../test_set_scripts/davenport_KIC.csv')
@@ -24,28 +33,31 @@ for (i in 1:length(results_list)){
 
 
 # test intervals
-subset_count <- 1
+subset_count <- 10
 test_interval <- 1:(71427/subset_count)
 
 # Load in the lightcurve residuals
-lc <- load(paste("../Results_Files_1/", results_list[test_num],sep = ""))
+lc <- load(paste("../KARPS_Davenport/", results_list[test_num],sep = ""))
 lc <- results$Lightcurve
 resid <- results$ARFIMA$residuals
 
 # create a list of dates for the df
-time_from_start <- seq(ymd_hm('0000-01-01 00:00'),ymd_hm('0004-12-31 23:45'), by = '15 mins')[1:length(resid)]
+#time_from_start <- seq(ymd_hm('0000-01-01 00:00'),ymd_hm('0004-12-31 23:45'), by = '15 mins')[1:length(resid)]
 
 # create a df from the residuals
-df <- data.frame("ds" = time_from_start[test_interval], "y" = resid[test_interval])
+#df <- data.frame("ds" = time_from_start[test_interval], "y" = resid[test_interval])
 
+#resid_list <- rep(0,length(results_list))
 # get a list of the residuals 
-for (test_num in 1:length(results_list)){
-  load(paste("../Results_Files_1/", results_list[test_num],sep = ""))
-  resid_list[test_num] <- list(results$ARFIMA$residuals[test_interval])
-}
-
+#for (test_num in 1:length(results_list)){
+#  load(paste("../KARPS_Davenport/", results_list[test_num],sep = ""))
+#  resid_list[test_num] <- list(results$ARFIMA$residuals[test_interval])
+#}
 # start the clock
 ptm <- proc.time()
+
+outliers <- tso(window(resid,2000,3000), pars= c(0,0,0), types = c("TC"))
+outliers
 
 # print time
 proc.time() - ptm
