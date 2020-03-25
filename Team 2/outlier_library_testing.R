@@ -54,10 +54,23 @@ resid <- results$ARFIMA$residuals
 #  resid_list[test_num] <- list(results$ARFIMA$residuals[test_interval])
 #}
 # start the clock
+#ptm <- proc.time()
+
+#tso_outliers <- tso(window(resid,2000,3000), pars= c(0,0,0), types = c("TC"))
+#tso_outliers
+
+#tso_outliers <- outliers(type = c("TC"), ind=resid[2000:3000])
+#tso_outliers
+
 ptm <- proc.time()
 
-outliers <- tso(window(resid,2000,3000), pars= c(0,0,0), types = c("TC"))
-outliers
+fit <- arima(resid, order = c(0,0,0))
+tso_resid <- residuals(fit)
+pars <- coefs2poly(fit)
+tso_outliers <- locate.outliers(tso_resid, pars, types = c("TC"), delta = 0.7)
+tso_outliers
+
+tso_outliers$ind[tso_outliers$coefhat > 1]
 
 # print time
 proc.time() - ptm
