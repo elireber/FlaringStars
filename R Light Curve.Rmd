@@ -1,0 +1,47 @@
+---
+title: "Capstone"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+
+library(tsoutliers)
+library(changepoint)
+
+lc = load("C:\\Users\\elire\\Documents\\000757076_results.Rdat")
+lc = results$Lightcurve
+rolling_median = rollmedian(lc, 10)
+x = rolling_median
+third_order_poly = lm(x ~ poly(rolling_median, 3, raw=TRUE))
+
+lc = lc - third_order_poly
+```
+
+```{r}
+missing = 0
+continuous_sequences = c()
+end_of_sequences = c()
+for (i in 1:length(lc)){
+  
+  if (is.na(lc[i])){
+    missing = missing + 1
+  }
+  
+  else{
+    missing = 0
+  }
+  
+  if (missing == 6){
+    end_of_sequences = append(end_of_sequences, i)
+  }
+}
+
+for (j in 1:length(end_of_sequences)){
+  if (j < length(end_of_sequences)-1 & end_of_sequences[j+1]-end_of_sequences[j]>=96){
+    continuous_sequences = append(continuous_sequences, lc[end_of_sequences[j]:end_of_sequences[j+1]])
+  }
+  
+}
+```
