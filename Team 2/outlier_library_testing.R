@@ -67,12 +67,64 @@ ptm <- proc.time()
 fit <- arima(resid, order = c(0,0,0))
 tso_resid <- residuals(fit)
 pars <- coefs2poly(fit)
-tso_outliers <- locate.outliers(tso_resid, pars, types = c("TC"), delta = 0.7)
-tso_outliers
+#tso_outliers <- locate.outliers(tso_resid, pars, cval=3.5, types = c("TC"), delta = 0.7)
+tso_outliers <- locate.outliers(tso_resid, pars, cval=3.5, types = c("TC"), delta = 0.5)
+#tso_outliers
 
-tso_outliers$ind[tso_outliers$coefhat > 1]
+#tso_outliers$ind[tso_outliers$coefhat > 1]
 
 # print time
 proc.time() - ptm
+
+length(tso_outliers$ind[tso_outliers$coefhat > 1]) - length(tso_outliers$ind[tso_outliers$coefhat < 1])
+
+#################################
+#        BIAS OF OUTLIERS       #
+#################################
+
+results_list <- list.files("../KARPS_Davenport")
+davenport_predicted <- read.csv(file = '../test_set_scripts/davenport_KIC.csv')
+
+bias_vs_flares<-c("NFL","NFL68",'bias')
+count <- 1
+
+for (file in results_list){
+  KIC_num <- strsplit(file,'_')
+  results_NFL <- subset(davenport_predicted, KIC == as.integer(KIC_num[[1]][1]))[["Nfl"]]
+  results_NFL68 <- subset(davenport_predicted, KIC == as.integer(KIC_num[[1]][1]))[["Nfl68"]]
+
+  load(paste("../KARPS_Davenport/",file,sep = ""))
+  resid <- results$ARFIMA$residuals
+  
+  fit <- arima(resid, order = c(0,0,0))
+  tso_resid <- residuals(fit)
+  pars <- coefs2poly(fit)
+
+  tso_outliers <- locate.outliers(tso_resid, pars, cval=3.5, types = c("TC"), delta = 0.5)
+  
+  bias <- length(tso_outliers$ind[tso_outliers$coefhat > 1]) - length(tso_outliers$ind[tso_outliers$coefhat < 1])
+  
+  bias_vs_flares <- rbind(bias_vs_flares, c(as.integer(results_NFL), as.integer(results_NFL68), as.integer(bias)))
+  
+  if(count %% 10 == 0){
+    print(count / length(results_list))
+  }
+  count <- count + 1
+}
+
+bias_vs_flares
+
+#################################
+#              END              #
+#################################
+
+# Look at different transformations
+
+bias <- read.csv("bias.csv")
+
+sum(-1000 < bias$bias & bias$bias < 1000 )
+hist(bias$bias[-1000 < bias$bias & bias$bias < 1000])
+mean(bias$bias[-1000 < bias$bias & bias$bias < 1000])
+
 
 
