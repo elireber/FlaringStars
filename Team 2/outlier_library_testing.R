@@ -127,4 +127,3 @@ hist(bias$bias[-1000 < bias$bias & bias$bias < 1000])
 mean(bias$bias[-1000 < bias$bias & bias$bias < 1000])
 
 
-
