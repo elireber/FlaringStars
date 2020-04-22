@@ -2,11 +2,14 @@
 #install.packages("changepoint")
 #install.packages("dtw")
 #install.packages("lubridate")
+#install.packages("lawstat")
+install.packages("symmetry")
 
 library("changepoint")
 library("tsoutliers")
 library("dtw")
 library("lubridate")
+library("symmetry")
 
 set.seed(42)
 
@@ -125,5 +128,8 @@ bias <- read.csv("bias.csv")
 sum(-1000 < bias$bias & bias$bias < 1000 )
 hist(bias$bias[-1000 < bias$bias & bias$bias < 1000])
 mean(bias$bias[-1000 < bias$bias & bias$bias < 1000])
+
+symmetry_test(bias$bias, "MOI", bootstrap = F, k=3, mu=0)
+
 
 
