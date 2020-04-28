@@ -1,0 +1,107 @@
+---
+title: "ARIMA_testing"
+author: "Ben Wortman"
+date: "4/27/2020"
+output: pdf_document
+---
+
+# to do:
+# Fix the Y label for the graphs
+# ACF <- auto correlation function 
+# IQR of the original data, and IQR of the final Residuals
+# SNR of original vs SNR of the Final
+# Toy examples 
+# Look at some real stars
+# Graph some of davenports stars
+
+# plot for the 70k points
+# plot(tso_resid1[1:80], pch=20, cex=0.5, col="#11111130",main="Residuals")
+
+# acf(tso_resid1, xrange=c(1:30))
+# SNR <- max(tso_resid1) / IQR(tso_resid1)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library("changepoint")
+library("tsoutliers")
+library("dtw")
+library("lubridate")
+library("symmetry")
+```
+
+## Synthesize The Data
+First set up the testing sequence we want our autoarima model to latch onto
+
+```{r}
+# generate a time series to run arima on
+seq_length <- 1000 # how long of a sequence to generate
+star_rotation_hours <- 24 # the synthetic stars rotation time
+noise <- 1 # how active the synthetic star is 
+star_amplitude <- 5
+# generate a 10k length sinosoidal sequence for the stars rotation and amplitude
+sequence <- star_amplitude * sin(seq(0,2*pi, 2*pi / star_rotation_hours / 4))
+sequence <- rep(sequence,seq_length / round(length(sequence)))
+# add in the random noise
+sequence_raw <- sequence + rnorm(length(sequence), 0, noise)
+
+```
+
+
+## Generate the Flare Shape
+Next we approximate the shape of a flare using the exponential function and then insert it randomly into the synthetic data. 
+
+```{r}
+# generate the flare shape - typically 2 hour decay
+intensity <- 10
+time_periods <- 8
+exp_outlier <- intensity * dexp(seq(0.5,20,0.25),2)[1:time_periods] / dexp(0.5,2)
+plot(exp_outlier)
+
+# set the flare position randomly in the middle 50 percent of the data 
+position <- round(runif(1,round(seq_length * .25),round(seq_length * 0.75)))
+
+# duplicate the original residuals 
+sequence_flare <- sequence_raw
+
+# insert the flare into the assigned position
+sequence_flare[position:(position+length(exp_outlier)-1)] <- sequence_flare[position:(position+length(exp_outlier)-1)] + exp_outlier
+
+
+
+# get the parameters for the outliers library
+#pars <- coefs2poly(fit)
+# test tsoutliers ovre the residuals
+#tso_outliers <- locate.outliers(resid, pars, cval=3.5, types = c("TC","AO"), delta = 0.5)
+#tso_outliers
+
+```
+## Fit to ARIMA 
+Then proceed to fit the ARIMA model to the raw data with the injected flare. 
+```{r}
+# fit using arima
+fit <- auto.arima(sequence_flare, max.order = 10, stepwise = F)
+
+# Get the residuals from arima
+resid <- residuals(fit)
+```
+
+
+## Plot the Results 
+```{r}
+# plot the residuals example
+par(mfrow=c(2,2))
+plot(c(rep(0,40), exp_outlier, rep(0,40 - time_periods)), type = "l", main="Flare Shape", ylab="Intensity")
+# raw data 
+plot(sequence_raw[(position-40):(position+40)], type = "l",main="Raw Data (No Flare)", ylab="Intensity")
+# raw with flare
+plot(sequence_flare[(position-40):(position+40)], type = "l", main="Raw Data (With Flare)", ylab="Intensity")
+abline(v=40, lty=2, col="red")
+# resids
+plot(resid[(position-40):(position+40)], type = "l", main="Residuals", ylab="Residuals")
+abline(v=40, lty=2, col="red")
+
+# Signal to Noise Ratio -> meaningful noise / IQR
+SNR <- max(resid) / IQR(resid)
+```
+
