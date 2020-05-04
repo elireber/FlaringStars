@@ -1,0 +1,316 @@
+---
+title: "Synthetic_ARIMA_flare_profiles"
+author: "Ben Wortman"
+date: "4/27/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Generating Synthetic Flare Profiles:
+By repeating the steps in ARIMA_testing_markdown.Rmd for hundreds of flares and then overlaying the resulting flare profiles, we can get a sense of what these flare profiles look like after being passed through ARIMA. We generated 100 flares per 20000 timestamps in the sequence to speed up the sampling. 
+
+```{r}
+library("changepoint")
+library("tsoutliers")
+library("dtw")
+library("lubridate")
+library("forecast")
+
+generate_profiles <- function(flare_intensity, 
+                              star_noise=1, 
+                              buffer_periods=2,
+                              seq_length = 20000,
+                              flare_num = 100){
+
+  # generate a time series to run arima on
+  seq_length <- seq_length # how long of a sequence to generate
+  star_rotation_hours <- 24 # the synthetic stars rotation time
+  noise <- star_noise # how active the synthetic star is 
+  star_amplitude <- 5
+  # generate a 10k length sinosoidal sequence for the stars rotation and amplitude
+  sequence <- star_amplitude * sin(seq(0,2*pi, 2*pi / star_rotation_hours / 4))
+  sequence <- rep(sequence,seq_length / round(length(sequence)))
+  # add in the random noise
+  sequence_raw <- sequence + rnorm(length(sequence), 0, noise)
+  
+  # generate the flare shape - typically 2 hour decay
+  intensity <- flare_intensity
+  time_periods <- 8
+  exp_outlier <- intensity * dexp(seq(0.5,20,0.25),2)[1:time_periods] / dexp(0.5,2)
+  #plot(exp_outlier)
+  
+  # set the flare position randomly in the middle 90 percent of the data 
+  flare_num <- flare_num # the number of flares to be inserted into the sequence
+  position <- round(runif(flare_num,round(seq_length * .05),round(seq_length * 0.95)))
+  
+  # duplicate the original residuals 
+  sequence_flare <- sequence_raw
+  
+  # insert the flare into the assigned position
+  for(pos in position){
+  sequence_flare[pos:((pos+length(exp_outlier)-1))] <- sequence_flare[pos:((pos+length(exp_outlier)-1))] + exp_outlier}
+  
+  # fit using arima
+  fit <- auto.arima(sequence_flare, max.order = 10, stepwise = F)
+  
+  # Get the residuals from arima
+  resid <- residuals(fit)
+  
+  
+  # get the star locations into a matrix
+  flare_position_label <- sprintf("t(%s)", seq(-buffer_periods,time_periods+buffer_periods+1))
+  flare_point_matrix <- c()
+  for(i in -buffer_periods:(time_periods+buffer_periods+1)){
+    flare_point_matrix <- cbind(flare_point_matrix, position + i)
+  }
+  flare_point_matrix
+  
+  # get the residuals into a matrix to be returned. Each column is a time
+  residual_matrix <- c()
+  for(i in 1:dim(flare_point_matrix)[2]){
+    residual_matrix <- cbind(residual_matrix, resid[flare_point_matrix[,i]])
+  }
+  residual_matrix <- data.frame(residual_matrix)
+  names(residual_matrix) <- flare_position_label
+  residual_matrix
+}
+
+```
+
+
+# Plot the Profile
+Next we can generate and then plot the profiles for all the synthesized data. 
+```{r}
+# create a function to plot the flare profiles
+point_plot <- function(flare_profile, intensity, lower=-3, upper=5){
+  # create an empty plot to add the points to
+  plot(1, type="n", 
+       axes=T, 
+       xlab="Time of Event", 
+       ylab="Intesity",
+       xlim=c(-3,11), 
+       ylim=c(lower,upper), 
+       main=paste0("Flare ",intensity,"x the intensity of noise"))
+  # Plot the points using a for loop
+  for (i in 1:(dim(flare_profile)[2])){
+    points(rep(i-3, dim(flare_profile)[1]), flare_profile[,i], pch=20, cex=0.5, col="#11111130")
+  }
+}
+
+# create a function to get the flare profiles quicker
+get_profiles <- function(intensity){
+  # generate the matrix of flare profiles
+  profiles <- c()
+  # get 1000 profiles
+  for (i in 1:10){profiles <- rbind(profiles, (generate_profiles(intensity)))}
+  profiles
+  
+}
+
+# write a function to save the flare profile
+save_profile <- function(flare_matrix, intensity_label){
+  filename <- paste("../synth_profiles/", intensity_label,"x_initial_signal_to_noise.csv", sep = "")
+  write.csv(flare_matrix, filename, row.names = F)
+}
+
+
+# loop through different intensity values and save the results
+# star and flare parameters can be adjusted in the main function above
+for (i in 8:9){
+  profiles <- get_profiles(i)
+  save_profile(profiles,i)
+}
+
+# then load the csvs to look at the estimated flare profiles after arima
+# 2x flare intensity
+profile <- read.csv("../synth_profiles/2x_initial_signal_to_noise.csv")
+point_plot(profile,2,-4,5)
+
+# 3x flare intensity
+profile <- read.csv("../synth_profiles/3x_initial_signal_to_noise.csv")
+point_plot(profile,3,-4,6)
+boxplot(profile)
+
+# 4x flare intensity
+profile <- read.csv("../synth_profiles/4x_initial_signal_to_noise.csv")
+point_plot(profile,4,-4,7)
+boxplot(profile)
+
+# 5x flare intensity
+profile <- read.csv("../synth_profiles/5x_initial_signal_to_noise.csv")
+point_plot(profile,5,-4,8)
+boxplot(profile)
+
+# 6x flare intensity
+profile <- read.csv("../synth_profiles/6x_initial_signal_to_noise.csv")
+point_plot(profile,6,-4,9)
+boxplot(profile)
+
+# 7x flare intensity
+profile <- read.csv("../synth_profiles/7x_initial_signal_to_noise.csv")
+point_plot(profile,7,-4,12)
+boxplot(profile)
+
+
+
+```
+
+## SNR for the different intensities
+We calculated the SNR using mean peak signal for the simulated flares divided by the IQR of 10 dummy lightcurves.
+
+```{r}
+
+
+# Get the IQR for the artificial data by averaging the IQR for 30 sequences
+iqr_list <- c()
+var_list <- c()
+for(i in 1:30){
+  # generate a time series to run arima on
+  seq_length <- 10000 # how long of a sequence to generate
+  star_rotation_hours <- 24 # the synthetic stars rotation time
+  noise <- 1 # how active the synthetic star is 
+  star_amplitude <- 5
+  # generate a 10k length sinosoidal sequence for the stars rotation and amplitude
+  sequence <- star_amplitude * sin(seq(0,2*pi, 2*pi / star_rotation_hours / 4))
+  sequence <- rep(sequence,seq_length / round(length(sequence)))
+  # add in the random noise
+  sequence_raw <- sequence + rnorm(length(sequence), 0, noise)
+  
+  # fit using arima
+  fit <- auto.arima(sequence_raw, max.order = 10, stepwise = F)
+  
+  # Get the residuals from arima
+  resid <- residuals(fit)
+  
+  # add the IQR to the list
+  iqr_list[i] <- IQR(resid)
+  var_list[i] <- var(resid)
+  print(i)
+}
+
+# get the mean IQR
+mean_variance <- mean(var_list)
+mean_IQR <- mean(iqr_list) # 1.6
+SNR_list <- c()
+for(file in list.files("../synth_profiles")){
+  profile <- read.csv(paste0("../synth_profiles/",file))
+  # get the SNR
+  SNR_list <- c(SNR_list,  mean(profile$t.0.) / mean_IQR)
+  print(c(file, mean(profile$t.0.) / mean_IQR, mean(profile$t.0.) / mean_variance))
+}
+
+
+
+# get the IQR from the average of 10 ARIMA models 
+
+
+
+# Signal to Noise Ratio -> meaningful noise / IQR
+SNR <- max(resid) / IQR(resid)
+```
+
+Plots for the synthetic flare profiles 
+```{r}
+par(mfrow=c(2,2))
+# then load the csvs to look at the estimated flare profiles after arima
+# 2x flare intensity
+profile <- read.csv("../synth_profiles/2x_initial_signal_to_noise.csv")
+point_plot(profile,2,-4,5)
+
+# 3x flare intensity
+profile <- read.csv("../synth_profiles/3x_initial_signal_to_noise.csv")
+point_plot(profile,3,-4,6)
+
+# 4x flare intensity
+profile <- read.csv("../synth_profiles/4x_initial_signal_to_noise.csv")
+point_plot(profile,4,-4,7)
+
+# 5x flare intensity
+profile <- read.csv("../synth_profiles/5x_initial_signal_to_noise.csv")
+point_plot(profile,5,-4,8)
+
+# 6x flare intensity
+profile <- read.csv("../synth_profiles/6x_initial_signal_to_noise.csv")
+point_plot(profile,6,-4,9)
+
+# 7x flare intensity
+profile <- read.csv("../synth_profiles/7x_initial_signal_to_noise.csv")
+point_plot(profile,7,-4,10)
+
+# 8x flare intensity
+profile <- read.csv("../synth_profiles/8x_initial_signal_to_noise.csv")
+point_plot(profile,8,-4,11)
+
+# 10x flare intensity
+profile <- read.csv("../synth_profiles/10x_initial_signal_to_noise.csv")
+point_plot(profile,10,-4,13)
+
+
+
+```
+
+
+## Checking the Bias of the synthetic data with flares inserted
+
+```{r}
+
+# generate a time series to run arima on
+flare_intensity <- 8
+flare_num = 300
+seq_length <- 70000 # how long of a sequence to generate
+star_rotation_hours <- 24 # the synthetic stars rotation time
+noise <- 1 # how active the synthetic star is 
+star_amplitude <- 5
+
+# run the test for different intensities
+bias_values <- c()
+time <- Sys.time() 
+for (flare_intensity  in 2:10){
+  # generate a 10k length sinosoidal sequence for the stars rotation and amplitude
+  sequence <- star_amplitude * sin(seq(0,2*pi, 2*pi / star_rotation_hours / 4))
+  sequence <- rep(sequence,seq_length / round(length(sequence)))
+  # add in the random noise
+  sequence_raw <- sequence + rnorm(length(sequence), 0, noise)
+  
+  # generate the flare shape - typically 2 hour decay
+  intensity <- flare_intensity
+  time_periods <- 8
+  exp_outlier <- intensity * dexp(seq(0.5,20,0.25),2)[1:time_periods] / dexp(0.5,2)
+  #plot(exp_outlier)
+  
+  # set the flare position randomly in the middle 90 percent of the data 
+  flare_num <- flare_num # the number of flares to be inserted into the sequence
+  position <- round(runif(flare_num,round(seq_length * .05),round(seq_length * 0.95)))
+  
+  # duplicate the original residuals 
+  sequence_flare <- sequence_raw
+  
+  # insert the flare into the assigned position
+  for(pos in position){
+  sequence_flare[pos:((pos+length(exp_outlier)-1))] <- sequence_flare[pos:((pos+length(exp_outlier)-1))] + exp_outlier}
+  
+  # fit using arima
+  fit <- auto.arima(sequence_flare, max.order = 10, stepwise = F)
+  
+  # Get the residuals from arima
+  resid <- residuals(fit)
+  
+  # get the parameters for the outlier library
+  pars <- coefs2poly(fit)
+  
+  tso_outliers <- locate.outliers(resid, pars, cval=3.5, types = c("AO"), delta = 0.5)
+  #tso_outliers
+  
+  # get the bias of the outlier distribution
+  bias_values <- c(bias_values, length(tso_outliers$ind[tso_outliers$coefhat > 0]) - length(tso_outliers$ind[tso_outliers$coefhat < 0]))
+  print(time - Sys.time())
+  time <-Sys.time() 
+}
+
+plot(2:10, bias_values, ylab="Bias", xlab="Flare Intensity", main="Bias of 300 Synthetic Flares")
+
+```
+

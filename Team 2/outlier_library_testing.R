@@ -126,7 +126,7 @@ bias_vs_flares
 bias <- read.csv("bias.csv")
 
 sum(-1000 < bias$bias & bias$bias < 1000 )
-hist(bias$bias[-1000 < bias$bias & bias$bias < 1000])
+hist(bias$bias[-1000 < bias$bias & bias$bias < 1000], main="Distribution of Bias for Davenports Stars", xlab = "Positive Outliers - Negative Outliers")
 mean(bias$bias[-1000 < bias$bias & bias$bias < 1000])
 
 symmetry_test(bias$bias, "MOI", bootstrap = F, k=3, mu=0)
