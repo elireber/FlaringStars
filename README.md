@@ -4,6 +4,7 @@ Team 2 - Try some new method
 
 Team 1:
 
+
 Team 2 folder:
 synthetic_ARIMA.Rmd
   - primary work file
