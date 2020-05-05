@@ -1,0 +1,187 @@
+---
+title: "Capstone"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+"The first step in the process is to subtract long-term dependencies in light-curve data
+  by subtracting out a third-order polynomial that is fitted on the light curve"
+
+lc = load("000757076_results.Rdat") 
+lc = results$Lightcurve
+
+summary(lc)
+
+#Plot the original, raw light curve
+plot(lc, pch=20, cex=0.9, col = "#11111140")
+
+evaluation_sequence = seq(1, length(lc)) 
+
+#Fitting a third order polynomial on the raw light curve data
+third_order_poly = lm(lc ~ poly(evaluation_sequence, 3), na.action = na.omit)
+summary(third_order_poly)
+
+sequence  = data.frame(x = seq(1, length(lc)))
+
+predictions = predict(third_order_poly, newdata = sequence)
+
+first_filter_lc = lc - predictions
+
+#The first polynomial fitting shows a mean and median that are closer to 0
+summary(first_filter_lc)
+
+plot(first_filter_lc, pch=20, cex=0.9, col = "#11111140")
+```
+
+```{r}
+
+"Light curve sequences must not contain gaps of more than 0.125 days, 
+  which translates to 6 NA's in a row. In order to be considered for
+  analysis, a continuous sequence must also be at least 2 days in length"
+
+
+missing = 0
+
+"I was not sure where the end of the previous sequence started when I would
+  find the start of a new sequence, so I decided to keep track of the 
+  starts and ends of the sequences separately"
+
+continuous_sequences = c()
+
+start_of_sequences = c()
+new = FALSE
+
+"This for loop keeps track of how many NA's are in a row. If 6 are counted,
+  then new is set to true and the start of the new sequence is recorded"
+
+for (i in 1:length(first_filter_lc)){
+  
+  if (!is.na(lc[i]) & new == TRUE){
+    start_of_sequences = append(start_of_sequences, i)
+  }
+  
+  if (is.na(lc[i])){
+    missing = missing + 1
+  }
+  
+  else{
+    missing = 0
+    new = FALSE
+  }
+  
+  if (missing == 6){
+    new = TRUE
+  }
+}
+
+end_of_sequences = c()
+missing = 0
+
+for (i in 1:length(first_filter_lc)){
+  
+  if (is.na(lc[i])){
+    missing = missing + 1
+  }
+  
+  else{
+    missing = 0
+  }
+  
+  if (missing == 6){
+    end_of_sequences = append(end_of_sequences, i)
+  }
+  
+}
+
+
+
+for (j in 1:length(start_of_sequences)){
+  if (j < length(end_of_sequences)-1 & end_of_sequences[j+1]-start_of_sequences[j]>=96){
+    continuous_sequences = append(continuous_sequences, j)
+  }
+  
+}
+
+
+```
+
+```{r}
+
+"This step is very similar to the first one, however the fitting and subtraction of the polynomial
+  is done within each continuous sequence of the light curve"
+
+#So as to not overwrite the first step's progress
+second_filter_lc = first_filter_lc
+
+for (i in 1:length(continuous_sequences)){
+  
+  continuous_segment  = second_filter_lc[start_of_sequences[i]:end_of_sequences[i+1]]
+
+  eval_sequence = seq(1, length(continuous_segment))
+  
+  third_order_poly = lm(continuous_segment ~ poly(eval_sequence, 3, raw = TRUE))
+  
+  sequence  = data.frame(x = seq(1, length(continuous_segment)))
+  predictions = predict(third_order_poly, newdata = sequence)
+  
+  second_filter_lc[start_of_sequences[i]:end_of_sequences[i+1]] = lc[start_of_sequences[i]:end_of_sequences[i+1]] - predictions
+}
+
+summary(second_filter_lc)
+
+#It can be seen visually that the values are within a narrower range
+plot(second_filter_lc, pch=20, cex=0.9, col = "#11111140")
+```
+
+```{r}
+
+"This step plots the Lomb-Scargle diagram, which shows that there is one clear signal. The top
+  frequencies are filtered out using a sine curve corresponding to the frequency"
+
+require(lomb)
+
+ls = lsp(second_filter_lc)
+
+for (i in 1:5){
+  
+  top = ls$scanned[ls$power == max(ls$power)]
+  
+  if (top > 0.25){
+    
+    prac = seq(1, length(second_filter_lc))
+    sin = sin(top*pi*prac/length(second_filter_lc))
+    fit = lm(prac ~ sin)
+    
+    sequence  = data.frame(x = seq(1, length(lc)))
+    predictions = predict(fit, newdata = sequence)
+  }
+  
+  ls = ls[ls$scanned != top]
+  
+}
+
+```
+
+```{r}
+
+"Here is the flare-finding procedure, which checks to see if the values follow the values set by Davenport"
+
+avg = mean(lc)
+std = sd(lc)
+
+a = lc - avg
+b = abs(lc - avg) / std
+c = abs(lc - avg - error) / std
+
+cands = which((a > 0) & (b > 3) & (c > 1))
+
+contains_flare = FALSE
+if (length(cands) > 0){
+  contains_flare = TRUE
+}
+
+print(contains_flare)
+```
+
