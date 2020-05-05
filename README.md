@@ -3,7 +3,7 @@ Team 1 - Repeat Davenport's experiment
 Team 2 - Try some new method
 
 Team 1:
-
+The whole completed work is called R Light Curve.RMD
 
 Team 2 folder:
 synthetic_ARIMA.Rmd
